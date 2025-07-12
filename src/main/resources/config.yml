@@ -1,0 +1,22 @@
+# TRRank Configuration
+
+# Language settings (zh_cn or en)
+language: zh_cn
+
+# Rank configuration
+ranks:
+  admin:
+    display: "§c[Admin] "
+    cost: 0
+  player:
+    display: "§7[Player] "
+    cost: 0
+  vip:
+    display: "§a[Vip] "
+    cost: 7
+  svip:
+    display: "§6[Svip] "
+    cost: 14
+  svip_plus:
+    display: "§e[Svip++] "
+    cost: 30
