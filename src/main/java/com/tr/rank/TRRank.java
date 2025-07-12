@@ -14,11 +14,16 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLConnection;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
 
@@ -32,6 +37,12 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     // ==================== 语言系统 ====================
     private static final Map<String, YamlConfiguration> languages = new HashMap<>();
     private static String currentLanguage = "zh_cn";
+    
+    // ==================== 更新检测系统 ====================
+    private static final int PLUGIN_VERSION = 100; // 当前插件版本
+    private static final String PRIMARY_UPDATE_URL = "https://raw.githubusercontent.com/Traveler114514/FileCloud/refs/heads/main/TRRank/version.txt";
+    private static final String UPDATE_SIGNATURE = "TRRankSecureUpdate"; // 更新签名
+    private String updateMessage = null; // 存储更新消息
     
     // ==================== 插件生命周期 ====================
     @Override
@@ -63,6 +74,9 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         // 启动每日登录检查任务
         startDailyCheckTask();
         
+        // 异步检查更新
+        checkForUpdates();
+        
         getLogger().info(getMessage("plugin.enabled"));
     }
 
@@ -70,6 +84,97 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     public void onDisable() {
         savePlayerData();
         getLogger().info(getMessage("plugin.disabled"));
+    }
+
+    // ==================== 更新检测方法 ====================
+    private void checkForUpdates() {
+        // 首先尝试主更新URL
+        String updateUrl = PRIMARY_UPDATE_URL;
+        
+        // 检查是否有配置的备用URL
+        String backupUrl = getConfig().getString("backup-update-url");
+        if (backupUrl != null && !backupUrl.isEmpty()) {
+            getLogger().info("Using configured backup update URL");
+            updateUrl = backupUrl;
+        }
+        
+        // 异步执行更新检查
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            try {
+                String versionData = fetchVersionData(updateUrl);
+                
+                // 验证更新数据签名
+                if (!isValidUpdateData(versionData)) {
+                    getLogger().warning("Invalid update signature detected");
+                    return;
+                }
+                
+                int latestVersion = parseVersion(versionData);
+                
+                if (latestVersion > PLUGIN_VERSION) {
+                    // 有新版本可用
+                    String msg = getMessage("update.available")
+                        .replace("%current%", String.valueOf(PLUGIN_VERSION))
+                        .replace("%latest%", String.valueOf(latestVersion));
+                    
+                    // 记录更新消息
+                    updateMessage = msg;
+                    
+                    // 在控制台输出
+                    getLogger().info(msg);
+                    getLogger().info(getMessage("update.download"));
+                } else if (latestVersion > 0) {
+                    getLogger().info(getMessage("update.latest"));
+                }
+            } catch (Exception e) {
+                getLogger().log(Level.WARNING, getMessage("update.failed"), e);
+            }
+        });
+    }
+    
+    private String fetchVersionData(String urlString) throws IOException {
+        URL url = new URL(urlString);
+        URLConnection connection = url.openConnection();
+        connection.setConnectTimeout(5000); // 5秒超时
+        connection.setReadTimeout(5000);   // 5秒超时
+        
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream()))) {
+            
+            StringBuilder content = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line);
+            }
+            return content.toString();
+        }
+    }
+    
+    private boolean isValidUpdateData(String data) {
+        // 简单签名验证：数据必须以特定签名开头
+        return data != null && data.startsWith(UPDATE_SIGNATURE);
+    }
+    
+    private int parseVersion(String data) {
+        try {
+            // 数据格式: TRRankSecureUpdate|101
+            String[] parts = data.split("\\|");
+            if (parts.length >= 2) {
+                return Integer.parseInt(parts[1].trim());
+            }
+        } catch (NumberFormatException e) {
+            getLogger().warning("Invalid version format: " + data);
+        }
+        return -1;
+    }
+    
+    private void notifyUpdate(Player player) {
+        if (updateMessage != null && player.isOp()) {
+            player.sendMessage(ChatColor.GOLD + "====================================");
+            player.sendMessage(updateMessage);
+            player.sendMessage(getMessage("update.download"));
+            player.sendMessage(ChatColor.GOLD + "====================================");
+        }
     }
 
     // ==================== 语言系统方法 ====================
@@ -404,6 +509,9 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         // 初始化登录日期记录
         String today = TimeTracker.getTodayDate();
         getPlayerData(player.getUniqueId()); // 确保数据存在
+        
+        // 通知OP更新
+        notifyUpdate(player);
     }
 
     @EventHandler
