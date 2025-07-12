@@ -1,0 +1,19 @@
+name: TRRank
+version: 1.0
+main: com.tr.rank.TRRank
+api-version: 1.16
+author: YourName
+
+commands:
+  trrank:
+    description: TRRank management command
+    usage: /trrank [give|buy|list|help]
+    permission: trrank.command
+
+permissions:
+  trrank.admin:
+    description: Admin permission for TRRank
+    default: op
+  trrank.command:
+    description: Permission to use TRRank commands
+    default: true
