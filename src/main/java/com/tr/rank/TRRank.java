@@ -98,10 +98,13 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
             updateUrl = backupUrl;
         }
         
+        // 创建最终变量用于lambda表达式
+        final String finalUpdateUrl = updateUrl;
+        
         // 异步执行更新检查
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             try {
-                String versionData = fetchVersionData(updateUrl);
+                String versionData = fetchVersionData(finalUpdateUrl);
                 
                 // 验证更新数据签名
                 if (!isValidUpdateData(versionData)) {
