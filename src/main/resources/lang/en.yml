@@ -1,0 +1,40 @@
+# Plugin messages
+plugin.enabled: "§aTRRank plugin has been enabled"
+plugin.disabled: "§cTRRank plugin has been disabled"
+
+# Loading messages
+load.ranks.start: "§eLoading rank configurations..."
+load.ranks.success: "§aSuccessfully loaded %count% ranks"
+load.ranks.empty: "§cNo ranks defined in configuration"
+
+# Permission messages
+no-permission: "§cYou don't have permission to do that!"
+command.unknown: "§cUnknown command. Use /trrank help"
+
+# Player messages
+player.not-found: "§cPlayer not online or doesn't exist!"
+player-only: "§cOnly players can execute this command!"
+
+# Rank messages
+rank.not-found: "§cRank not found!"
+rank.already-have: "§cYou already have this rank!"
+rank.insufficient-days: "§eYou need %days% days of playtime (current: %current% days)"
+rank.purchased: "§aYou have successfully purchased rank: %rank%"
+rank.given: "§aGiven rank %rank% to %player%"
+rank.no-ranks: "§cNo ranks are currently configured"
+
+# Rank list messages
+rank.list-header: "§6=== Available Ranks ==="
+rank.list-item: "  %color%%id% §7(%cost% days required)"
+rank.list-details-header: "§6=== Rank Details ==="
+rank.detail: "  %color%ID: %id%\n  §fDisplay: %display%\n  §fCost: §e%cost% days"
+
+# Command help
+help.header: "§6=== TRRank Help ==="
+help.admin.give: "§a/trrank give <player> <rank> §7- Grant a rank to player"
+help.player.buy: "§a/trrank buy <rank> §7- Purchase rank with playtime"
+help.player.list: "§a/trrank list §7- View detailed rank information"
+help.player.help: "§a/trrank help §7- Show this help"
+
+# Command usage
+command.usage: "§cUsage: %usage%"
