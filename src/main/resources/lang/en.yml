@@ -38,3 +38,10 @@ help.player.help: "§a/trrank help §7- Show this help"
 
 # Command usage
 command.usage: "§cUsage: %usage%"
+
+# Update detection messages
+update.available: "§eNew version available! Current: %current%, Latest: %latest%"
+update.latest: "§aTRRank is up to date"
+update.failed: "§cFailed to check for updates"
+update.download: "§bDownload the latest version from: https://example.com/trrank"
+update.url-invalid: "§cInvalid update check URL, please check config file"
