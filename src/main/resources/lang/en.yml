@@ -48,3 +48,11 @@ update.url-invalid: "§cInvalid update check URL, please check config file"
 
 # Default rank messages
 rank.default-assigned: "§aYou have been assigned the default rank: %rank%"
+
+# New messages
+rank.activated: "§aActivated rank: %rank%"
+rank.not-owned: "§cYou don't own this rank!"
+command.usage.use: "§cUsage: /trrank use <rank>"
+
+# Help message update
+help.player.use: "§a/trrank use <rank> §7- Switch active rank display"
