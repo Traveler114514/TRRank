@@ -12,7 +12,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -33,6 +36,10 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     private final Map<UUID, String> lastLoginDates = new ConcurrentHashMap<>();
     private File playerDataFile;
     private static TRRank instance;
+    
+    // ==================== Tab列表团队管理 ====================
+    private final Map<String, Team> rankTeams = new HashMap<>();
+    private Scoreboard scoreboard;
     
     // ==================== 语言系统 ====================
     private static final Map<String, YamlConfiguration> languages = new HashMap<>();
@@ -65,6 +72,9 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         // 加载玩家数据
         loadPlayerData();
         
+        // 初始化Tab列表团队
+        initializeTabListTeams();
+        
         // 注册命令执行器
         getCommand("trrank").setExecutor(this);
         
@@ -86,6 +96,84 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         getLogger().info(getMessage("plugin.disabled"));
     }
 
+    // ==================== Tab列表团队初始化 ====================
+    private void initializeTabListTeams() {
+        scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        
+        // 清理旧的团队（如果存在）
+        for (Team team : scoreboard.getTeams()) {
+            if (team.getName().startsWith("trrank_")) {
+                team.unregister();
+            }
+        }
+        
+        // 为每个等级创建团队
+        for (String rankId : ranks.keySet()) {
+            String teamName = "trrank_" + rankId;
+            Team team = scoreboard.registerNewTeam(teamName);
+            
+            // 设置团队前缀（等级显示）
+            String prefix = getColoredPrefix(rankId);
+            if (prefix.length() > 16) {
+                prefix = prefix.substring(0, 16);
+            }
+            team.setPrefix(prefix);
+            
+            // 保存团队引用
+            rankTeams.put(rankId, team);
+        }
+        
+        // 为所有在线玩家分配团队
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            assignPlayerToTeam(player);
+        }
+    }
+    
+    // 获取带颜色的前缀（仅前缀部分有颜色）
+    private String getColoredPrefix(String rankId) {
+        RankData rank = ranks.get(rankId);
+        if (rank == null) return "";
+        
+        // 提取颜色代码
+        String colorCode = getRankColorCode(rankId);
+        
+        // 创建带颜色的前缀
+        return colorCode + rank.getDisplay().replace(colorCode, "") + ChatColor.RESET;
+    }
+    
+    private void assignPlayerToTeam(Player player) {
+        PlayerData data = playerData.get(player.getUniqueId());
+        if (data == null) return;
+        
+        // 获取玩家最高优先级等级
+        String highestRank = getHighestRank(data);
+        if (highestRank != null) {
+            Team team = rankTeams.get(highestRank);
+            if (team != null) {
+                // 如果玩家在其他团队中，先移除
+                Team currentTeam = scoreboard.getEntryTeam(player.getName());
+                if (currentTeam != null && !currentTeam.equals(team)) {
+                    currentTeam.removeEntry(player.getName());
+                }
+                
+                // 添加到新团队
+                if (!team.hasEntry(player.getName())) {
+                    team.addEntry(player.getName());
+                }
+            }
+        }
+    }
+    
+    private String getHighestRank(PlayerData data) {
+        // 返回优先级最高的等级（按加入顺序）
+        for (String rankId : data.getRanks()) {
+            if (ranks.containsKey(rankId)) {
+                return rankId;
+            }
+        }
+        return null;
+    }
+    
     // ==================== 更新检测方法 ====================
     private void checkForUpdates() {
         // 首先尝试主更新URL
@@ -261,6 +349,9 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     private void giveRank(Player player, String rankId) {
         PlayerData data = getPlayerData(player.getUniqueId());
         data.addRank(rankId.toLowerCase());
+        
+        // 更新Tab列表团队
+        assignPlayerToTeam(player);
     }
     
     private boolean buyRank(Player player, String rankId) {
@@ -290,19 +381,45 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         data.addRank(rankId);
         player.sendMessage(getMessage("rank.purchased")
             .replace("%rank%", rankId));
+        
+        // 更新Tab列表团队
+        assignPlayerToTeam(player);
+        
         return true;
     }
     
+    // 获取带颜色的前缀（仅前缀部分有颜色）
     private String getDisplayPrefix(Player player) {
         PlayerData data = playerData.get(player.getUniqueId());
         if (data == null) return "";
         
-        // 返回优先级最高的等级（按加入顺序）
-        for (String rankId : data.getRanks()) {
-            RankData rank = ranks.get(rankId);
-            if (rank != null) return rank.getDisplay();
+        // 获取最高优先级等级
+        String highestRank = getHighestRank(data);
+        if (highestRank == null) return "";
+        
+        // 获取颜色代码
+        String colorCode = getRankColorCode(highestRank);
+        
+        // 获取前缀文本（不带颜色）
+        RankData rank = ranks.get(highestRank);
+        if (rank == null) return "";
+        
+        String prefixText = rank.getDisplay().replace(colorCode, "");
+        
+        // 创建带颜色的前缀
+        return colorCode + prefixText + ChatColor.RESET;
+    }
+    
+    // 获取等级对应的颜色代码
+    private String getRankColorCode(String rankId) {
+        switch (rankId.toLowerCase()) {
+            case "admin": return "§c";
+            case "player": return "§7";
+            case "vip": return "§a";
+            case "svip": return "§6";
+            case "svip_plus": return "§e";
+            default: return "§f";
         }
-        return "";
     }
     
     private Map<String, RankData> getRanks() {
@@ -447,7 +564,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         
         player.sendMessage(getMessage("rank.list-header"));
         ranks.forEach((id, rank) -> {
-            String color = getRankColor(id);
+            String color = getRankColorCode(id);
             
             if (!data.hasRank(id)) {
                 String line = getMessage("rank.list-item")
@@ -468,28 +585,17 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         
         sender.sendMessage(getMessage("rank.list-details-header"));
         ranks.forEach((id, rank) -> {
-            String color = getRankColor(id);
+            String color = getRankColorCode(id);
             
             String detail = getMessage("rank.detail")
                 .replace("%color%", color)
                 .replace("%id%", id)
-                .replace("%display%", rank.getDisplay())
+                .replace("%display%", rank.getDisplay().replace(color, ""))
                 .replace("%cost%", String.valueOf(rank.getCost()));
             
             sender.sendMessage(detail);
         });
         return true;
-    }
-    
-    private String getRankColor(String rankId) {
-        switch (rankId.toLowerCase()) {
-            case "admin": return "§c";
-            case "player": return "§7";
-            case "vip": return "§a";
-            case "svip": return "§6";
-            case "svip_plus": return "§e";
-            default: return "§f";
-        }
     }
     
     private boolean showHelp(CommandSender sender) {
@@ -515,6 +621,19 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         
         // 通知OP更新
         notifyUpdate(player);
+        
+        // 分配Tab列表团队
+        assignPlayerToTeam(player);
+    }
+    
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        // 玩家退出时从团队中移除
+        Team team = scoreboard.getEntryTeam(player.getName());
+        if (team != null && team.getName().startsWith("trrank_")) {
+            team.removeEntry(player.getName());
+        }
     }
 
     @EventHandler
