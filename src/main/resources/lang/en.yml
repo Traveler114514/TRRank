@@ -46,4 +46,5 @@ update.failed: "§cFailed to check for updates"
 update.download: "§bDownload the latest version from: https://github.com/Traveler114514/TRRank/releases/"
 update.url-invalid: "§cInvalid update check URL, please check config file"
 
+# Default rank messages
 rank.default-assigned: "§aYou have been assigned the default rank: %rank%"
