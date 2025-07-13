@@ -47,14 +47,13 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     
     // ==================== 更新检测系统 ====================
     private static final int PLUGIN_VERSION = 100; // 当前插件版本
-    private static final String PRIMARY_UPDATE_URL = "https://secure.example.com/trrank/version.txt";
+    private static final String PRIMARY_UPDATE_URL = "https://raw.githubusercontent.com/Traveler114514/FileCloud/refs/heads/main/TRRank/version.txt";
     private static final String UPDATE_SIGNATURE = "TRRankSecureUpdate"; // 更新签名
     private String updateMessage = null; // 存储更新消息
     
     // ==================== 默认称号系统 ====================
     private String defaultRankId = "player"; // 默认称号ID
-    
-    // ==================== 插件生命周期 ====================
+
     @Override
     public void onEnable() {
         instance = this;
@@ -177,33 +176,31 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         PlayerData data = playerData.get(player.getUniqueId());
         if (data == null) return;
         
-        // 获取玩家最高优先级等级
-        String highestRank = getHighestRank(data);
-        if (highestRank != null) {
-            Team team = rankTeams.get(highestRank);
-            if (team != null) {
-                // 如果玩家在其他团队中，先移除
-                Team currentTeam = scoreboard.getEntryTeam(player.getName());
-                if (currentTeam != null && !currentTeam.equals(team)) {
-                    currentTeam.removeEntry(player.getName());
-                }
-                
-                // 添加到新团队
-                if (!team.hasEntry(player.getName())) {
-                    team.addEntry(player.getName());
-                }
+        // 获取玩家当前激活的等级
+        String activeRank = data.getActiveRank();
+        if (activeRank == null) {
+            // 如果没有激活的等级，使用第一个称号
+            if (!data.getRanks().isEmpty()) {
+                activeRank = data.getRanks().iterator().next();
+                data.setActiveRank(activeRank);
+            } else {
+                return;
             }
         }
-    }
-    
-    private String getHighestRank(PlayerData data) {
-        // 返回优先级最高的等级（按加入顺序）
-        for (String rankId : data.getRanks()) {
-            if (ranks.containsKey(rankId)) {
-                return rankId;
+        
+        Team team = rankTeams.get(activeRank);
+        if (team != null) {
+            // 如果玩家在其他团队中，先移除
+            Team currentTeam = scoreboard.getEntryTeam(player.getName());
+            if (currentTeam != null && !currentTeam.equals(team)) {
+                currentTeam.removeEntry(player.getName());
+            }
+            
+            // 添加到新团队
+            if (!team.hasEntry(player.getName())) {
+                team.addEntry(player.getName());
             }
         }
-        return null;
     }
     
     // ==================== 更新检测方法 ====================
@@ -331,6 +328,11 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
             String msg = getMessage("load.ranks.success")
                 .replace("%count%", String.valueOf(ranks.size()));
             getLogger().info(msg);
+            
+            // 确保默认玩家等级存在
+            if (!ranks.containsKey("player")) {
+                ranks.put("player", new RankData("§7[Player] ", 0));
+            }
         } else {
             getLogger().warning(getMessage("load.ranks.empty"));
         }
@@ -339,6 +341,11 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     private void giveRank(Player player, String rankId) {
         PlayerData data = getPlayerData(player.getUniqueId());
         data.addRank(rankId.toLowerCase());
+        
+        // 如果这是玩家的第一个称号，设置为激活称号
+        if (data.getActiveRank() == null) {
+            data.setActiveRank(rankId.toLowerCase());
+        }
         
         // 更新Tab列表团队
         assignPlayerToTeam(player);
@@ -372,26 +379,29 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         player.sendMessage(getMessage("rank.purchased")
             .replace("%rank%", rankId));
         
+        // 如果这是玩家的第一个称号，设置为激活称号
+        if (data.getActiveRank() == null) {
+            data.setActiveRank(rankId);
+        }
+        
         // 更新Tab列表团队
         assignPlayerToTeam(player);
         
         return true;
     }
     
-    private String getDisplayPrefix(Player player) {
+    // 获取激活称号的显示前缀
+    private String getActiveDisplayPrefix(Player player) {
         PlayerData data = playerData.get(player.getUniqueId());
         if (data == null) return "";
         
-        // 返回优先级最高的等级（按加入顺序）
-        for (String rankId : data.getRanks()) {
-            RankData rank = ranks.get(rankId);
-            if (rank != null) return rank.getDisplay();
-        }
+        String activeRankId = data.getActiveRank();
+        if (activeRankId == null) return "";
+        
+        RankData rank = ranks.get(activeRankId);
+        if (rank != null) return rank.getDisplay();
+        
         return "";
-    }
-    
-    private Map<String, RankData> getRanks() {
-        return Collections.unmodifiableMap(ranks);
     }
     
     // 获取等级对应的颜色代码
@@ -423,7 +433,12 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
                 UUID uuid = UUID.fromString(key);
                 int playDays = dataConfig.getInt(key + ".days");
                 List<String> ranks = dataConfig.getStringList(key + ".ranks");
-                playerData.put(uuid, new PlayerData(playDays, new HashSet<>(ranks)));
+                String activeRank = dataConfig.getString(key + ".activeRank");
+                
+                PlayerData playerData = new PlayerData(playDays, new HashSet<>(ranks));
+                playerData.setActiveRank(activeRank);
+                
+                this.playerData.put(uuid, playerData);
             } catch (IllegalArgumentException e) {
                 getLogger().warning("Invalid UUID format: " + key);
             }
@@ -434,8 +449,11 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         FileConfiguration dataConfig = new YamlConfiguration();
         for (Map.Entry<UUID, PlayerData> entry : playerData.entrySet()) {
             String uuid = entry.getKey().toString();
-            dataConfig.set(uuid + ".days", entry.getValue().getPlayDays());
-            dataConfig.set(uuid + ".ranks", new ArrayList<>(entry.getValue().getRanks()));
+            PlayerData data = entry.getValue();
+            
+            dataConfig.set(uuid + ".days", data.getPlayDays());
+            dataConfig.set(uuid + ".ranks", new ArrayList<>(data.getRanks()));
+            dataConfig.set(uuid + ".activeRank", data.getActiveRank());
         }
         
         try {
@@ -483,6 +501,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         switch (subCommand) {
             case "give": return handleGive(sender, args);
             case "buy": return handleBuy(sender, args);
+            case "use": return handleUse(sender, args);
             case "list": return handleList(sender);
             case "help": return showHelp(sender);
             default: 
@@ -538,6 +557,50 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         return buyRank(player, rankId);
     }
     
+    // ==================== 新增：切换称号命令 ====================
+    private boolean handleUse(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(getMessage("player-only"));
+            return true;
+        }
+        
+        Player player = (Player) sender;
+        
+        if (args.length < 2) {
+            player.sendMessage(getMessage("command.usage")
+                .replace("%usage%", "/trrank use <rank>"));
+            return true;
+        }
+        
+        String rankId = args[1].toLowerCase();
+        PlayerData data = getPlayerData(player.getUniqueId());
+        
+        // 检查玩家是否拥有该称号
+        if (!data.hasRank(rankId)) {
+            player.sendMessage(getMessage("rank.not-owned"));
+            return true;
+        }
+        
+        // 检查称号是否存在
+        if (!ranks.containsKey(rankId)) {
+            player.sendMessage(getMessage("rank.not-found"));
+            return true;
+        }
+        
+        // 设置激活称号
+        data.setActiveRank(rankId);
+        
+        // 更新Tab列表团队
+        assignPlayerToTeam(player);
+        
+        // 通知玩家
+        String msg = getMessage("rank.activated")
+            .replace("%rank%", rankId);
+        player.sendMessage(msg);
+        
+        return true;
+    }
+    
     private void sendAvailableRanks(Player player) {
         PlayerData data = getPlayerData(player.getUniqueId());
         Map<String, RankData> ranks = getRanks();
@@ -586,6 +649,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         }
         
         sender.sendMessage(getMessage("help.player.buy"));
+        sender.sendMessage(getMessage("help.player.use"));
         sender.sendMessage(getMessage("help.player.list"));
         sender.sendMessage(getMessage("help.player.help"));
         return true;
@@ -606,16 +670,28 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
             data.addRank(defaultRankId);
             getLogger().info("Assigned default rank '" + defaultRankId + "' to " + player.getName());
             
+            // 设置激活称号
+            data.setActiveRank(defaultRankId);
+            
             // 通知玩家
             notifyPlayerOfDefaultRank(player);
             
             // 保存玩家数据
             savePlayerData();
+        } else if (data.getActiveRank() == null) {
+            // 如果没有激活称号，设置第一个称号为激活状态
+            String firstRank = data.getRanks().iterator().next();
+            data.setActiveRank(firstRank);
         }
         
         // 初始化登录日期记录
         String today = TimeTracker.getTodayDate();
-        lastLoginDates.put(uuid, today);
+        String lastDate = lastLoginDates.get(uuid);
+        
+        if (!today.equals(lastDate)) {
+            data.incrementPlayDay();
+            lastLoginDates.put(uuid, today);
+        }
         
         // 通知OP更新
         notifyUpdate(player);
@@ -640,11 +716,17 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         }
     }
 
+    // ==================== 修复聊天显示问题 ====================
     @EventHandler
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
-        String prefix = getDisplayPrefix(player);
-        event.setFormat(prefix + " %s: %s");
+        
+        // 获取激活称号的显示前缀
+        String prefix = getActiveDisplayPrefix(player);
+        
+        // 重置玩家名称和消息内容的颜色
+        // 格式: [称号前缀] 玩家名称: 消息内容
+        event.setFormat(prefix + "%s§f: %s");
     }
 
     // ==================== 内部数据类 ====================
@@ -669,6 +751,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     private static class PlayerData {
         private int playDays;
         private final Set<String> ranks;
+        private String activeRank; // 当前激活的称号
         
         public PlayerData() {
             this(0, new HashSet<>());
@@ -677,6 +760,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         public PlayerData(int playDays, Set<String> ranks) {
             this.playDays = playDays;
             this.ranks = new HashSet<>(ranks);
+            this.activeRank = null;
         }
         
         public boolean hasRank(String rankId) {
@@ -697,6 +781,14 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         
         public void incrementPlayDay() {
             playDays++;
+        }
+        
+        public String getActiveRank() {
+            return activeRank;
+        }
+        
+        public void setActiveRank(String activeRank) {
+            this.activeRank = activeRank;
         }
     }
     
