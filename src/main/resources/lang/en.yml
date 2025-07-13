@@ -38,6 +38,9 @@ help.player.help: "§a/trrank help §7- Show this help"
 
 # Command usage
 command.usage: "§cUsage: %usage%"
+command.usage.buy: "§cUsage: %usage%"
+command.usage.give: "§cUsage: /trrank give <player> <rank>"
+command.usage.use: "§cUsage: /trrank use <rank>"
 
 # Update detection messages
 update.available: "§eNew version available! Current: %current%, Latest: %latest%"
