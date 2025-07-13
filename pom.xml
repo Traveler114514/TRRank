@@ -23,19 +23,43 @@
     </properties>
 
     <repositories>
+        <!-- Spigot 官方仓库 -->
         <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
+        
+        <!-- PaperMC 仓库 -->
+        <repository>
+            <id>paper-repo</id>
+            <url>https://papermc.io/repo/repository/maven-public/</url>
+        </repository>
+        
+        <!-- Sonatype 快照仓库 -->
+        <repository>
+            <id>sonatype-snapshots</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+        </repository>
     </repositories>
 
     <dependencies>
+        <!-- 使用 Paper API -->
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-api</artifactId>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
             <version>${bukkit.version}</version>
             <scope>provided</scope>
         </dependency>
+        
+        <!-- 或者使用 Bukkit API -->
+        <!--
+        <dependency>
+            <groupId>org.bukkit</groupId>
+            <artifactId>bukkit</artifactId>
+            <version>${bukkit.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        -->
     </dependencies>
 
     <build>
@@ -115,52 +139,6 @@
                                     </excludes>
                                 </filter>
                             </filters>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            
-            <!-- 清理插件 -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-clean-plugin</artifactId>
-                <version>3.3.1</version>
-                <configuration>
-                    <filesets>
-                        <fileset>
-                            <directory>${project.build.directory}</directory>
-                            <includes>
-                                <include>*.jar</include>
-                            </includes>
-                            <excludes>
-                                <exclude>original-${project.artifactId}-${project.version}.jar</exclude>
-                                <exclude>${project.artifactId}-${project.version}-shaded.jar</exclude>
-                            </excludes>
-                        </fileset>
-                    </filesets>
-                </configuration>
-            </plugin>
-            
-            <!-- 重命名插件 -->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.3.0</version>
-                <executions>
-                    <execution>
-                        <id>rename-shaded-jar</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>attach-artifact</goal>
-                        </goals>
-                        <configuration>
-                            <artifacts>
-                                <artifact>
-                                    <file>${project.build.directory}/${project.artifactId}-${project.version}-shaded.jar</file>
-                                    <type>jar</type>
-                                    <classifier></classifier>
-                                </artifact>
-                            </artifacts>
                         </configuration>
                     </execution>
                 </executions>
