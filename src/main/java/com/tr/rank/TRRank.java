@@ -5,6 +5,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.MemorySection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -47,7 +48,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     
     // ==================== 安全更新检测系统 ====================
     private static final int PLUGIN_VERSION = 100; // 当前插件版本
-    private static final String PRIMARY_UPDATE_URL = "https://secure.trrank.com/version.txt";
+    private static final String PRIMARY_UPDATE_URL = "https://raw.githubusercontent.com/Traveler114514/FileCloud/refs/heads/main/TRRank/version.txt";
     private static final String UPDATE_SIGNATURE = "TRRankSecureUpdate"; // 更新签名
     private String updateMessage = null; // 存储更新消息
     
@@ -323,21 +324,30 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     
     public static String getMessage(String key) {
         YamlConfiguration langConfig = languages.get(currentLanguage);
-        String message = langConfig.getString(key);
+        Object messageObj = langConfig.get(key);
         
-        if (message == null) {
-            // 尝试从默认语言获取
-            langConfig = languages.get("zh_cn");
-            message = langConfig.getString(key);
-            
-            if (message == null) {
-                instance.getLogger().warning("Missing language key: " + key);
-                return key; // 返回键名作为回退
-            }
+        // 处理不同类型的返回值
+        if (messageObj instanceof String) {
+            String message = (String) messageObj;
+            return ChatColor.translateAlternateColorCodes('&', message);
+        } else if (messageObj instanceof MemorySection) {
+            // 处理错误的配置格式
+            instance.getLogger().warning("Invalid message format for key: " + key);
+            return key;
         }
         
-        // 翻译颜色代码
-        return ChatColor.translateAlternateColorCodes('&', message);
+        // 尝试从默认语言获取
+        langConfig = languages.get("zh_cn");
+        messageObj = langConfig.get(key);
+        
+        if (messageObj instanceof String) {
+            String message = (String) messageObj;
+            return ChatColor.translateAlternateColorCodes('&', message);
+        }
+        
+        // 最终回退
+        instance.getLogger().warning("Missing language key: " + key);
+        return key;
     }
 
     // ==================== 等级管理方法 ====================
@@ -547,8 +557,9 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         }
         
         if (args.length < 3) {
-            sender.sendMessage(getMessage("command.usage")
-                .replace("%usage%", "/trrank give <player> <rank>"));
+            String usage = getMessage("command.usage")
+                .replace("%usage%", "/trrank give <player> <rank>");
+            sender.sendMessage(usage);
             return true;
         }
         
@@ -578,8 +589,9 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         
         if (args.length < 2) {
             sendAvailableRanks(player);
-            player.sendMessage(getMessage("command.usage")
-                .replace("%usage%", "/trrank buy <rank>"));
+            String usage = getMessage("command.usage")
+                .replace("%usage%", "/trrank buy <rank>");
+            player.sendMessage(usage);
             return true;
         }
         
@@ -589,7 +601,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     
     private void sendAvailableRanks(Player player) {
         PlayerData data = getPlayerData(player.getUniqueId());
-        Map<String, RankData> allRanks = getRanks(); // 使用局部变量避免冲突
+        Map<String, RankData> allRanks = getRanks();
         
         player.sendMessage(getMessage("rank.list-header"));
         allRanks.forEach((id, rank) -> {
@@ -603,6 +615,11 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
                 player.sendMessage(line);
             }
         });
+        
+        // 修复后的用法提示
+        String usageMsg = getMessage("command.usage")
+            .replace("%usage%", "/trrank buy <rank>");
+        player.sendMessage(usageMsg);
     }
     
     // ==================== 新增：切换称号命令 ====================
@@ -615,8 +632,9 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         Player player = (Player) sender;
         
         if (args.length < 2) {
-            player.sendMessage(getMessage("command.usage")
-                .replace("%usage%", "/trrank use <rank>"));
+            String usage = getMessage("command.usage")
+                .replace("%usage%", "/trrank use <rank>");
+            player.sendMessage(usage);
             return true;
         }
         
@@ -650,7 +668,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     }
     
     private boolean handleList(CommandSender sender) {
-        Map<String, RankData> allRanks = getRanks(); // 使用局部变量避免冲突
+        Map<String, RankData> allRanks = getRanks();
         if (allRanks.isEmpty()) {
             sender.sendMessage(getMessage("rank.no-ranks"));
             return true;
