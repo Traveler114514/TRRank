@@ -45,3 +45,6 @@ update.latest: "§aTRRank 已是最新版本"
 update.failed: "§c检查更新失败"
 update.download: "§b请访问我们的网站下载最新版本: https://github.com/Traveler114514/TRRank/releases/"
 update.url-invalid: "§c更新检测URL无效，请检查配置文件"
+
+# 默认称号消息
+rank.default-assigned: "§a你已获得默认称号: %rank%"
