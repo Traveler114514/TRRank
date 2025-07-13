@@ -7,7 +7,7 @@ language: zh_cn
 ranks:
   admin:
     display: "§c[Admin] "
-    cost: 0
+    cost: 114514
   player:
     display: "§7[Player] "
     cost: 0
