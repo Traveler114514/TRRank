@@ -47,9 +47,12 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     
     // ==================== 更新检测系统 ====================
     private static final int PLUGIN_VERSION = 100; // 当前插件版本
-    private static final String PRIMARY_UPDATE_URL = "https://raw.githubusercontent.com/Traveler114514/FileCloud/refs/heads/main/TRRank/version.txt";
+    private static final String PRIMARY_UPDATE_URL = "https://secure.example.com/trrank/version.txt";
     private static final String UPDATE_SIGNATURE = "TRRankSecureUpdate"; // 更新签名
     private String updateMessage = null; // 存储更新消息
+    
+    // ==================== 默认称号系统 ====================
+    private String defaultRankId = "player"; // 默认称号ID
     
     // ==================== 插件生命周期 ====================
     @Override
@@ -71,6 +74,9 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         
         // 加载玩家数据
         loadPlayerData();
+        
+        // 加载默认称号配置
+        loadDefaultRankConfig();
         
         // 初始化Tab列表团队
         initializeTabListTeams();
@@ -96,6 +102,32 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         getLogger().info(getMessage("plugin.disabled"));
     }
 
+    // ==================== 默认称号配置 ====================
+    private void loadDefaultRankConfig() {
+        // 从配置文件中读取默认称号
+        String configDefaultRank = getConfig().getString("default-rank", "player").toLowerCase();
+        
+        // 验证默认称号是否存在
+        if (ranks.containsKey(configDefaultRank)) {
+            defaultRankId = configDefaultRank;
+            getLogger().info("Default rank set to: " + defaultRankId);
+        } else {
+            getLogger().warning("Default rank '" + configDefaultRank + "' not found in ranks configuration!");
+            
+            // 尝试使用player作为备选
+            if (ranks.containsKey("player")) {
+                defaultRankId = "player";
+                getLogger().warning("Using 'player' as fallback default rank");
+            } else if (!ranks.isEmpty()) {
+                // 使用第一个可用称号
+                defaultRankId = ranks.keySet().iterator().next();
+                getLogger().warning("Using first available rank '" + defaultRankId + "' as default");
+            } else {
+                getLogger().severe("No ranks available! Plugin may not function properly");
+            }
+        }
+    }
+    
     // ==================== Tab列表团队初始化 ====================
     private void initializeTabListTeams() {
         scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
@@ -176,31 +208,13 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     
     // ==================== 更新检测方法 ====================
     private void checkForUpdates() {
-        // 首先尝试主更新URL
-        String updateUrl = PRIMARY_UPDATE_URL;
-        
-        // 检查是否有配置的备用URL
-        String backupUrl = getConfig().getString("backup-update-url");
-        if (backupUrl != null && !backupUrl.isEmpty()) {
-            getLogger().info("Using configured backup update URL");
-            updateUrl = backupUrl;
-        }
-        
-        // 创建最终变量用于lambda表达式
-        final String finalUpdateUrl = updateUrl;
+        // 从配置获取更新检查URL
+        String updateUrl = getConfig().getString("update-check-url", PRIMARY_UPDATE_URL);
         
         // 异步执行更新检查
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             try {
-                String versionData = fetchVersionData(finalUpdateUrl);
-                
-                // 验证更新数据签名
-                if (!isValidUpdateData(versionData)) {
-                    getLogger().warning("Invalid update signature detected");
-                    return;
-                }
-                
-                int latestVersion = parseVersion(versionData);
+                int latestVersion = getLatestVersion(updateUrl);
                 
                 if (latestVersion > PLUGIN_VERSION) {
                     // 有新版本可用
@@ -223,7 +237,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         });
     }
     
-    private String fetchVersionData(String urlString) throws IOException {
+    private int getLatestVersion(String urlString) throws IOException {
         URL url = new URL(urlString);
         URLConnection connection = url.openConnection();
         connection.setConnectTimeout(5000); // 5秒超时
@@ -232,31 +246,12 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(connection.getInputStream()))) {
             
-            StringBuilder content = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                content.append(line);
+            String line = reader.readLine();
+            if (line != null) {
+                return Integer.parseInt(line.trim());
             }
-            return content.toString();
         }
-    }
-    
-    private boolean isValidUpdateData(String data) {
-        // 简单签名验证：数据必须以特定签名开头
-        return data != null && data.startsWith(UPDATE_SIGNATURE);
-    }
-    
-    private int parseVersion(String data) {
-        try {
-            // 数据格式: TRRankSecureUpdate|101
-            String[] parts = data.split("\\|");
-            if (parts.length >= 2) {
-                return Integer.parseInt(parts[1].trim());
-            }
-        } catch (NumberFormatException e) {
-            getLogger().warning("Invalid version format: " + data);
-        }
-        return -1;
+        return -1; // 无效版本
     }
     
     private void notifyUpdate(Player player) {
@@ -336,11 +331,6 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
             String msg = getMessage("load.ranks.success")
                 .replace("%count%", String.valueOf(ranks.size()));
             getLogger().info(msg);
-            
-            // 确保默认玩家等级存在
-            if (!ranks.containsKey("player")) {
-                ranks.put("player", new RankData("§7[Player] ", 0));
-            }
         } else {
             getLogger().warning(getMessage("load.ranks.empty"));
         }
@@ -388,26 +378,20 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         return true;
     }
     
-    // 获取带颜色的前缀（仅前缀部分有颜色）
     private String getDisplayPrefix(Player player) {
         PlayerData data = playerData.get(player.getUniqueId());
         if (data == null) return "";
         
-        // 获取最高优先级等级
-        String highestRank = getHighestRank(data);
-        if (highestRank == null) return "";
-        
-        // 获取颜色代码
-        String colorCode = getRankColorCode(highestRank);
-        
-        // 获取前缀文本（不带颜色）
-        RankData rank = ranks.get(highestRank);
-        if (rank == null) return "";
-        
-        String prefixText = rank.getDisplay().replace(colorCode, "");
-        
-        // 创建带颜色的前缀
-        return colorCode + prefixText + ChatColor.RESET;
+        // 返回优先级最高的等级（按加入顺序）
+        for (String rankId : data.getRanks()) {
+            RankData rank = ranks.get(rankId);
+            if (rank != null) return rank.getDisplay();
+        }
+        return "";
+    }
+    
+    private Map<String, RankData> getRanks() {
+        return Collections.unmodifiableMap(ranks);
     }
     
     // 获取等级对应的颜色代码
@@ -420,10 +404,6 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
             case "svip_plus": return "§e";
             default: return "§f";
         }
-    }
-    
-    private Map<String, RankData> getRanks() {
-        return Collections.unmodifiableMap(ranks);
     }
 
     // ==================== 玩家数据管理 ====================
@@ -590,7 +570,7 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
             String detail = getMessage("rank.detail")
                 .replace("%color%", color)
                 .replace("%id%", id)
-                .replace("%display%", rank.getDisplay().replace(color, ""))
+                .replace("%display%", rank.getDisplay())
                 .replace("%cost%", String.valueOf(rank.getCost()));
             
             sender.sendMessage(detail);
@@ -615,9 +595,27 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        UUID uuid = player.getUniqueId();
+        
+        // 获取玩家数据（如果不存在则创建）
+        PlayerData data = getPlayerData(uuid);
+        
+        // 检查玩家是否拥有任何称号
+        if (data.getRanks().isEmpty()) {
+            // 给予默认称号
+            data.addRank(defaultRankId);
+            getLogger().info("Assigned default rank '" + defaultRankId + "' to " + player.getName());
+            
+            // 通知玩家
+            notifyPlayerOfDefaultRank(player);
+            
+            // 保存玩家数据
+            savePlayerData();
+        }
+        
         // 初始化登录日期记录
         String today = TimeTracker.getTodayDate();
-        getPlayerData(player.getUniqueId()); // 确保数据存在
+        lastLoginDates.put(uuid, today);
         
         // 通知OP更新
         notifyUpdate(player);
@@ -626,6 +624,12 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         assignPlayerToTeam(player);
     }
     
+    private void notifyPlayerOfDefaultRank(Player player) {
+        String message = getMessage("rank.default-assigned")
+            .replace("%rank%", defaultRankId);
+        player.sendMessage(message);
+    }
+
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
