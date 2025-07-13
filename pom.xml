@@ -22,44 +22,22 @@
         <jar.plugin.version>3.3.0</jar.plugin.version>
     </properties>
 
-    <repositories>
-        <!-- Spigot 官方仓库 -->
         <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
-        
-        <!-- PaperMC 仓库 -->
         <repository>
-            <id>paper-repo</id>
-            <url>https://papermc.io/repo/repository/maven-public/</url>
+            <id>sonatype</id>
+            <url>https://oss.sonatype.org/content/groups/public/</url>
         </repository>
-        
-        <!-- Sonatype 快照仓库 -->
-        <repository>
-            <id>sonatype-snapshots</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-        </repository>
-    </repositories>
-
     <dependencies>
-        <!-- 使用 Paper API -->
+        <!-- 使用 Spigot API -->
         <dependency>
-            <groupId>io.papermc.paper</groupId>
-            <artifactId>paper-api</artifactId>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
             <version>${bukkit.version}</version>
             <scope>provided</scope>
         </dependency>
-        
-        <!-- 或者使用 Bukkit API -->
-        <!--
-        <dependency>
-            <groupId>org.bukkit</groupId>
-            <artifactId>bukkit</artifactId>
-            <version>${bukkit.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        -->
     </dependencies>
 
     <build>
