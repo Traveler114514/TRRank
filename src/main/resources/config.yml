@@ -3,6 +3,9 @@
 # Language settings (zh_cn or en)
 language: zh_cn
 
+# Default rank for new players
+default-rank: player
+
 # Rank configuration
 ranks:
   admin:
