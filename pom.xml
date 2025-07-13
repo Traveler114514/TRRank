@@ -6,24 +6,26 @@
 
     <groupId>com.tr.rank</groupId>
     <artifactId>TRRank</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>TRRank</name>
     <description>A custom rank plugin for Minecraft servers</description>
-    <url>https://github.com/yourname/TRRank</url>
+    <url>https://github.com/Traveler114514/TRRank</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <bukkit.version>1.16.5-R0.1-SNAPSHOT</bukkit.version>
+        <shade.plugin.version>3.5.1</shade.plugin.version>
+        <jar.plugin.version>3.3.0</jar.plugin.version>
     </properties>
 
     <repositories>
         <repository>
-            <id>spigot-repo</id>
-            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+            <id>github-repo</id>
+            <url>https://github.com/nexus/Traveler114514/TRRank/</url>
         </repository>
     </repositories>
 
@@ -37,23 +39,55 @@
     </dependencies>
 
     <build>
-        <!-- 设置最终JAR文件名 -->
-        <finalName>${project.artifactId}</finalName>
-        
         <plugins>
+            <!-- 编译器插件 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+            
+            <!-- 生成原始JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${jar.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>make-original-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>original</classifier>
+                            <finalName>original-${project.artifactId}-${project.version}</finalName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <!-- 生成shaded JAR -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.4.1</version>
+                <version>${shade.plugin.version}</version>
                 <executions>
                     <execution>
+                        <id>make-shaded-jar</id>
                         <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <!-- 关键配置：不附加shaded分类器 -->
-                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>shaded</shadedClassifierName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <finalName>${project.artifactId}-${project.version}</finalName>
                             
                             <!-- 重命名依赖包路径 -->
                             <relocations>
@@ -86,6 +120,7 @@
                 </executions>
             </plugin>
             
+            <!-- 清理插件 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
@@ -95,21 +130,40 @@
                         <fileset>
                             <directory>${project.build.directory}</directory>
                             <includes>
-                                <include>original-*.jar</include>
+                                <include>*.jar</include>
                             </includes>
+                            <excludes>
+                                <exclude>original-${project.artifactId}-${project.version}.jar</exclude>
+                                <exclude>${project.artifactId}-${project.version}-shaded.jar</exclude>
+                            </excludes>
                         </fileset>
                     </filesets>
                 </configuration>
             </plugin>
             
+            <!-- 重命名插件 -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
-                <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
-                </configuration>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <execution>
+                        <id>rename-shaded-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>attach-artifact</goal>
+                        </goals>
+                        <configuration>
+                            <artifacts>
+                                <artifact>
+                                    <file>${project.build.directory}/${project.artifactId}-${project.version}-shaded.jar</file>
+                                    <type>jar</type>
+                                    <classifier></classifier>
+                                </artifact>
+                            </artifacts>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
