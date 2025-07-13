@@ -47,8 +47,8 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
     
     // ==================== 安全更新检测系统 ====================
     private static final int PLUGIN_VERSION = 100; // 当前插件版本
-    private static final String PRIMARY_UPDATE_URL = "https://raw.githubusercontent.com/Traveler114514/FileCloud/refs/heads/main/TRRank/version.txt"; // 硬编码更新URL
-    private static final String UPDATE_SIGNATURE = "TRRankSecureUpdate"; // 硬编码更新签名
+    private static final String PRIMARY_UPDATE_URL = "https://secure.trrank.com/version.txt";
+    private static final String UPDATE_SIGNATURE = "TRRankSecureUpdate"; // 更新签名
     private String updateMessage = null; // 存储更新消息
     
     // ==================== 默认称号系统 ====================
@@ -442,6 +442,11 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
             default: return "§f";
         }
     }
+    
+    // ==================== 修复：添加缺失的getRanks方法 ====================
+    private Map<String, RankData> getRanks() {
+        return Collections.unmodifiableMap(ranks);
+    }
 
     // ==================== 玩家数据管理 ====================
     private void loadPlayerData() {
@@ -582,6 +587,24 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         return buyRank(player, rankId);
     }
     
+    private void sendAvailableRanks(Player player) {
+        PlayerData data = getPlayerData(player.getUniqueId());
+        Map<String, RankData> allRanks = getRanks(); // 使用局部变量避免冲突
+        
+        player.sendMessage(getMessage("rank.list-header"));
+        allRanks.forEach((id, rank) -> {
+            String color = getRankColorCode(id);
+            
+            if (!data.hasRank(id)) {
+                String line = getMessage("rank.list-item")
+                    .replace("%color%", color)
+                    .replace("%id%", id)
+                    .replace("%cost%", String.valueOf(rank.getCost()));
+                player.sendMessage(line);
+            }
+        });
+    }
+    
     // ==================== 新增：切换称号命令 ====================
     private boolean handleUse(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
@@ -626,33 +649,15 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         return true;
     }
     
-    private void sendAvailableRanks(Player player) {
-        PlayerData data = getPlayerData(player.getUniqueId());
-        Map<String, RankData> ranks = getRanks();
-        
-        player.sendMessage(getMessage("rank.list-header"));
-        ranks.forEach((id, rank) -> {
-            String color = getRankColorCode(id);
-            
-            if (!data.hasRank(id)) {
-                String line = getMessage("rank.list-item")
-                    .replace("%color%", color)
-                    .replace("%id%", id)
-                    .replace("%cost%", String.valueOf(rank.getCost()));
-                player.sendMessage(line);
-            }
-        });
-    }
-    
     private boolean handleList(CommandSender sender) {
-        Map<String, RankData> ranks = getRanks();
-        if (ranks.isEmpty()) {
+        Map<String, RankData> allRanks = getRanks(); // 使用局部变量避免冲突
+        if (allRanks.isEmpty()) {
             sender.sendMessage(getMessage("rank.no-ranks"));
             return true;
         }
         
         sender.sendMessage(getMessage("rank.list-details-header"));
-        ranks.forEach((id, rank) -> {
+        allRanks.forEach((id, rank) -> {
             String color = getRankColorCode(id);
             
             String detail = getMessage("rank.detail")
