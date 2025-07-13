@@ -11,7 +11,7 @@
 
     <name>TRRank</name>
     <description>A custom rank plugin for Minecraft servers</description>
-    <url>https://github.com/Traveler114514/TRRank</url>
+    <url>https://github.com/yourname/TRRank</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -24,8 +24,8 @@
 
     <repositories>
         <repository>
-            <id>github-repo</id>
-            <url>https://github.com/nexus/Traveler114514/TRRank/</url>
+            <id>spigot-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
     </repositories>
 
