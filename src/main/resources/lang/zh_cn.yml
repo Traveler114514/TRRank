@@ -48,3 +48,11 @@ update.url-invalid: "§c更新检测URL无效，请检查配置文件"
 
 # 默认称号消息
 rank.default-assigned: "§a你已获得默认称号: %rank%"
+
+# 新增消息
+rank.activated: "§a已切换称号: %rank%"
+rank.not-owned: "§c你没有这个称号!"
+command.usage.use: "§c用法: /trrank use <rank>"
+
+# 帮助消息更新
+help.player.use: "§a/trrank use <rank> §7- 切换当前显示的称号"
