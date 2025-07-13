@@ -21,7 +21,7 @@
         <shade.plugin.version>3.5.1</shade.plugin.version>
         <jar.plugin.version>3.3.0</jar.plugin.version>
     </properties>
-
+    <repositories>
         <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
@@ -30,6 +30,7 @@
             <id>sonatype</id>
             <url>https://oss.sonatype.org/content/groups/public/</url>
         </repository>
+    </repositories>
     <dependencies>
         <!-- 使用 Spigot API -->
         <dependency>
