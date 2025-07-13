@@ -532,141 +532,136 @@ public class TRRank extends JavaPlugin implements Listener, CommandExecutor {
         }
     }
 
-    // ==================== 命令处理 ====================
-    @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-        if (args.length == 0) return showHelp(sender);
-        
-        String subCommand = args[0].toLowerCase();
-        switch (subCommand) {
-            case "give": return handleGive(sender, args);
-            case "buy": return handleBuy(sender, args);
-            case "use": return handleUse(sender, args);
-            case "list": return handleList(sender);
-            case "help": return showHelp(sender);
-            default: 
-                sender.sendMessage(getMessage("command.unknown"));
-                return true;
-        }
-    }
+// ==================== 命令处理 ====================
+@Override
+public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+    if (args.length == 0) return showHelp(sender);
     
-    private boolean handleGive(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("trrank.admin")) {
-            sender.sendMessage(getMessage("no-permission"));
+    String subCommand = args[0].toLowerCase();
+    switch (subCommand) {
+        case "give": return handleGive(sender, args);
+        case "buy": return handleBuy(sender, args);
+        case "use": return handleUse(sender, args);
+        case "list": return handleList(sender);
+        case "help": return showHelp(sender);
+        default: 
+            sender.sendMessage(getMessage("command.unknown"));
             return true;
-        }
-        
-        if (args.length < 3) {
-            String usage = getMessage("command.usage")
-                .replace("%usage%", "/trrank give <player> <rank>");
-            sender.sendMessage(usage);
-            return true;
-        }
-        
-        Player target = Bukkit.getPlayer(args[1]);
-        if (target == null) {
-            sender.sendMessage(getMessage("player.not-found"));
-            return true;
-        }
-        
-        String rankId = args[2];
-        giveRank(target, rankId);
-        
-        String msg = getMessage("rank.given")
-            .replace("%player%", target.getName())
-            .replace("%rank%", rankId);
-        sender.sendMessage(msg);
+    }
+}
+
+private boolean handleGive(CommandSender sender, String[] args) {
+    if (!sender.hasPermission("trrank.admin")) {
+        sender.sendMessage(getMessage("no-permission"));
         return true;
     }
     
-    private boolean handleBuy(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage(getMessage("player-only"));
-            return true;
-        }
-        
-        Player player = (Player) sender;
-        
-        if (args.length < 2) {
-            sendAvailableRanks(player);
-            String usage = getMessage("command.usage")
-                .replace("%usage%", "/trrank buy <rank>");
-            player.sendMessage(usage);
-            return true;
-        }
-        
-        String rankId = args[1];
-        return buyRank(player, rankId);
-    }
-    
-    private void sendAvailableRanks(Player player) {
-        PlayerData data = getPlayerData(player.getUniqueId());
-        Map<String, RankData> allRanks = getRanks();
-        
-        player.sendMessage(getMessage("rank.list-header"));
-        allRanks.forEach((id, rank) -> {
-            String color = getRankColorCode(id);
-            
-            if (!data.hasRank(id)) {
-                String line = getMessage("rank.list-item")
-                    .replace("%color%", color)
-                    .replace("%id%", id)
-                    .replace("%cost%", String.valueOf(rank.getCost()));
-                player.sendMessage(line);
-            }
-        });
-        
-        // 修复后的用法提示
-        String usageMsg = getMessage("command.usage")
-            .replace("%usage%", "/trrank buy <rank>");
-        player.sendMessage(usageMsg);
-    }
-    
-    // ==================== 新增：切换称号命令 ====================
-    private boolean handleUse(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage(getMessage("player-only"));
-            return true;
-        }
-        
-        Player player = (Player) sender;
-        
-        if (args.length < 2) {
-            String usage = getMessage("command.usage")
-                .replace("%usage%", "/trrank use <rank>");
-            player.sendMessage(usage);
-            return true;
-        }
-        
-        String rankId = args[1].toLowerCase();
-        PlayerData data = getPlayerData(player.getUniqueId());
-        
-        // 检查玩家是否拥有该称号
-        if (!data.hasRank(rankId)) {
-            player.sendMessage(getMessage("rank.not-owned"));
-            return true;
-        }
-        
-        // 检查称号是否存在
-        if (!ranks.containsKey(rankId)) {
-            player.sendMessage(getMessage("rank.not-found"));
-            return true;
-        }
-        
-        // 设置激活称号
-        data.setActiveRank(rankId);
-        
-        // 更新Tab列表团队
-        assignPlayerToTeam(player);
-        
-        // 通知玩家
-        String msg = getMessage("rank.activated")
-            .replace("%rank%", rankId);
-        player.sendMessage(msg);
-        
+    if (args.length < 3) {
+        String usage = getMessage("command.usage")
+            .replace("%usage%", "/trrank give <player> <rank>");
+        sender.sendMessage(usage);
         return true;
     }
     
+    Player target = Bukkit.getPlayer(args[1]);
+    if (target == null) {
+        sender.sendMessage(getMessage("player.not-found"));
+        return true;
+    }
+    
+    String rankId = args[2];
+    giveRank(target, rankId);
+    
+    String msg = getMessage("rank.given")
+        .replace("%player%", target.getName())
+        .replace("%rank%", rankId);
+    sender.sendMessage(msg);
+    return true;
+}
+
+private boolean handleBuy(CommandSender sender, String[] args) {
+    if (!(sender instanceof Player)) {
+        sender.sendMessage(getMessage("player-only"));
+        return true;
+    }
+    
+    Player player = (Player) sender;
+    
+    if (args.length < 2) {
+        sendAvailableRanks(player); // 这个方法内部已经包含了用法提示
+        return true;
+    }
+    
+    String rankId = args[1];
+    return buyRank(player, rankId);
+}
+
+private void sendAvailableRanks(Player player) {
+    PlayerData data = getPlayerData(player.getUniqueId());
+    Map<String, RankData> allRanks = getRanks();
+    
+    player.sendMessage(getMessage("rank.list-header"));
+    allRanks.forEach((id, rank) -> {
+        String color = getRankColorCode(id);
+        
+        if (!data.hasRank(id)) {
+            String line = getMessage("rank.list-item")
+                .replace("%color%", color)
+                .replace("%id%", id)
+                .replace("%cost%", String.valueOf(rank.getCost()));
+            player.sendMessage(line);
+        }
+    });
+    
+    // 在列表后添加用法提示
+    String usageMsg = getMessage("command.usage")
+        .replace("%usage%", "/trrank buy <rank>");
+    player.sendMessage(usageMsg);
+}
+
+private boolean handleUse(CommandSender sender, String[] args) {
+    if (!(sender instanceof Player)) {
+        sender.sendMessage(getMessage("player-only"));
+        return true;
+    }
+    
+    Player player = (Player) sender;
+    
+    if (args.length < 2) {
+        String usage = getMessage("command.usage")
+            .replace("%usage%", "/trrank use <rank>");
+        player.sendMessage(usage);
+        return true;
+    }
+    
+    String rankId = args[1].toLowerCase();
+    PlayerData data = getPlayerData(player.getUniqueId());
+    
+    // 检查玩家是否拥有该称号
+    if (!data.hasRank(rankId)) {
+        player.sendMessage(getMessage("rank.not-owned"));
+        return true;
+    }
+    
+    // 检查称号是否存在
+    if (!ranks.containsKey(rankId)) {
+        player.sendMessage(getMessage("rank.not-found"));
+        return true;
+    }
+    
+    // 设置激活称号
+    data.setActiveRank(rankId);
+    
+    // 更新Tab列表团队
+    assignPlayerToTeam(player);
+    
+    // 通知玩家
+    String msg = getMessage("rank.activated")
+        .replace("%rank%", rankId);
+    player.sendMessage(msg);
+    
+    return true;
+}   
     private boolean handleList(CommandSender sender) {
         Map<String, RankData> allRanks = getRanks();
         if (allRanks.isEmpty()) {
